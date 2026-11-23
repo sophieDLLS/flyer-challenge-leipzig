@@ -1,67 +1,938 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flyer-Challenge: Die Linke Leipzig Süd</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Work+Sans:wght@600;700;800;900&display=swap" rel="stylesheet"><style>:root{--wine:#83152c;--wine-dark:#591022;--paper:#fffaf8;--ink:#281e24;--muted:#71636b}
-*{box-sizing:border-box}
-body{margin:0;font:15px "Inter",system-ui,-apple-system,sans-serif;background:var(--paper);color:var(--ink)}
-header{background:linear-gradient(120deg,#641126 0%,#941d38 100%);color:white;padding:19px 20px 17px;box-shadow:0 3px 16px #3b081626}
-.header-inner{max-width:1200px;margin:auto}
-.eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#ffccd6;margin-bottom:7px}
-h1{font-family:"Work Sans","Inter",sans-serif;font-size:clamp(22px,3vw,31px);line-height:1.18;letter-spacing:-.035em;margin:0 0 7px;font-weight:800}
-#mode{display:block;color:#f8dfe5;font-size:13px}
-.progress-box{margin-top:17px;background:#ffffff15;border:1px solid #ffffff35;border-radius:14px;padding:12px 14px}
-.progress-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
-.progress-label{font-size:12px;font-weight:750;color:#ffe5eb}
-#progress{font-size:13px;color:white;font-weight:700}
-.bar{height:11px;background:#ffffff45;border-radius:30px;overflow:hidden}
-.fill{height:100%;background:#ffd0d9;width:0;transition:width .3s}
-.legend{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
-.legend span{display:inline-flex;align-items:center;gap:7px;background:#ffffff19;border:1px solid #ffffff26;border-radius:30px;padding:6px 10px;font-size:12px}
-.dot{display:inline-block;width:11px;height:11px;border-radius:50%;flex:none;border:1px solid #ffffff45}
-.controls{max-width:1200px;margin:0 auto;padding:12px 16px;background:var(--paper);display:flex;gap:9px;flex-wrap:wrap;align-items:center}
-button,select,input{font:inherit;padding:11px 13px;border:1px solid #ddcbd0;border-radius:11px;background:white;color:var(--ink)}
-button{cursor:pointer;font-weight:650}
-button:disabled{opacity:.45}
-select{flex:1;min-width:170px;max-width:380px}
-#login{background:var(--wine);border-color:var(--wine);color:white}
-#logout{background:#fff;border-color:#c7a5ae;color:var(--wine)}
-#user{color:#266b47;font-weight:750;font-size:13px}
-#map{height:calc(100dvh - 295px);min-height:360px;width:100%;border-top:1px solid #e7dce0;border-bottom:1px solid #e7dce0}
-.leaflet-container{background:#e7edf0}
-.notice{max-width:1200px;margin:auto;padding:12px 16px 20px;font-size:12px;color:var(--muted)}
-.modal{position:fixed;inset:0;background:#16060d99;z-index:1000;display:none;align-items:end;justify-content:center}
-.panel{background:white;padding:24px;width:100%;max-width:480px;border-radius:19px 19px 0 0;box-shadow:0 -8px 40px #0002}
-.panel strong{font-size:18px}
-.panel button{margin:5px}
-.panel #choices{display:flex;flex-wrap:wrap;gap:5px}
-@media(min-width:700px){.modal{align-items:center}.panel{border-radius:19px}}
-@media(max-width:520px){header{padding:16px 14px}.controls{padding:10px}.progress-top{align-items:flex-start;flex-direction:column;gap:4px}#map{height:calc(100dvh - 320px);min-height:320px}.legend{gap:5px}.legend span{font-size:11px;padding:5px 8px}}</style></head><body><header><div class="header-inner">
-<div class="eyebrow">Gemeinsam unterwegs · Leipzig Süd</div>
-<h1>Flyer-Challenge: Die Linke Leipzig Süd</h1>
-<small id="mode">Gemeinsam Flyer verteilen – Straßenstatus live verfolgen</small>
-<div class="progress-box">
-<div class="progress-top"><span class="progress-label">UNSER FORTSCHRITT</span><small id="progress">0 von 0 Abschnitten fertig</small></div>
-<div class="bar"><div class="fill" id="fill"></div></div>
-</div>
-<div class="legend">
-<span><i class="dot" style="background:#8B919A"></i> Offen</span>
-<span><i class="dot" style="background:#FFD600"></i> In Bearbeitung</span>
-<span><i class="dot" style="background:#E5484D"></i> Fertig</span>
-</div>
-</div></header><div class="controls"><select id="district"><option value="">Alle Stadtteile</option><option>Connewitz</option><option>Südvorstadt</option><option>Dölitz-Dösen</option><option>Lößnig</option><option>Marienbrunn</option></select><button id="login">Helfer-Anmeldung</button><button id="logout" hidden>Abmelden</button><span id="user"></span></div><div id="map"></div><div class="notice" id="notice">Hinweis: Einzelne Straßenabschnitte können noch unvollständig sein.</div><div class="modal" id="modal"><div class="panel"><strong id="street"></strong><p id="hint"></p><div id="choices"></div><button onclick="closePanel()">Schließen</button></div></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script type="module">
-import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
-const COLORS={offen:'#8B919A',arbeit:'#FFD600',fertig:'#E5484D'};
-const config=await fetch('./config.json').then(r=>r.json()).catch(()=>({}));
-const live=!!(config.supabaseUrl&&config.supabaseAnonKey);const db=live?createClient(config.supabaseUrl,config.supabaseAnonKey):null;
-const map=L.map('map').setView([51.307,12.378],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap-Mitwirkende',maxZoom:19}).addTo(map);
-let features=[],layer,selected=null,session=null,allowed=false;
-const example={type:'FeatureCollection',features:[{type:'Feature',properties:{id:'demo-1',name:'Beispielabschnitt A',district:'Südvorstadt',status:'offen'},geometry:{type:'LineString',coordinates:[[12.372,51.326],[12.3725,51.324]]}},{type:'Feature',properties:{id:'demo-2',name:'Beispielabschnitt B',district:'Connewitz',status:'arbeit'},geometry:{type:'LineString',coordinates:[[12.378,51.312],[12.380,51.311]]}},{type:'Feature',properties:{id:'demo-3',name:'Beispielabschnitt C',district:'Marienbrunn',status:'fertig'},geometry:{type:'LineString',coordinates:[[12.389,51.304],[12.390,51.302]]}}]};
-let source=await fetch('./streets_733_ohne_bornaische_ministueck_test.geojson').then(r=>r.ok?r.json():null).catch(()=>null);if(!source?.features?.length){source=example;document.getElementById('notice').textContent='ACHTUNG: Die Straßen-Datei fehlt. Es werden nur 3 Demoabschnitte angezeigt.';}
-features=source.features.filter(f=>f.geometry?.type==='LineString'&&f.properties?.id);
-if(live){document.getElementById('mode').textContent='Änderungen werden für alle auf der Karte gespeichert';await refreshSession();const {data,error:readError}=await db.from('street_status').select('id,status');if(readError)document.getElementById('notice').textContent='Supabase-Lesefehler: '+readError.message;if(source===example)document.getElementById('notice').textContent='ACHTUNG: Die Straßen-Datei fehlt. Es werden nur 3 Demoabschnitte angezeigt.';for(const row of data||[]){const f=features.find(f=>f.properties.id===row.id);if(f)f.properties.status=row.status;}db.channel('status-updates').on('postgres_changes',{event:'*',schema:'public',table:'street_status'},async()=>{const {data}=await db.from('street_status').select('id,status');for(const row of data||[]){const f=features.find(f=>f.properties.id===row.id);if(f)f.properties.status=row.status;}draw();}).subscribe();}
-else document.getElementById('login').hidden=true;
-function draw(){if(layer)map.removeLayer(layer);const district=document.getElementById('district').value;const visible=features.filter(f=>!district||f.properties.district===district);layer=L.geoJSON({type:'FeatureCollection',features:visible},{style:f=>({color:COLORS[f.properties.status]||COLORS.offen,weight:9,opacity:.9}),onEachFeature:(f,l)=>l.on('click',()=>openPanel(f))}).addTo(map);const done=visible.filter(f=>f.properties.status==='fertig').length;document.getElementById('fill').style.width=(visible.length?done/visible.length*100:0)+'%';document.getElementById('progress').textContent=`${done} von ${visible.length} Abschnitten fertig (${visible.length?Math.round(done/visible.length*100):0} %) `;}
-document.getElementById('district').onchange=()=>{draw();if(layer.getLayers().length)map.fitBounds(layer.getBounds().pad(.15));};
-function openPanel(f){selected=f;document.getElementById('street').textContent=`${f.properties.name||'Straßenabschnitt'} · ${f.properties.district||''}`;document.getElementById('hint').textContent=live&&!allowed?'Nur freigeschaltete Helfer dürfen den Status ändern.':'Status wählen:';const choices=document.getElementById('choices');choices.replaceChildren();for(const [status,label] of [['offen','Noch nicht verteilt'],['arbeit','In Bearbeitung'],['fertig','Fertig verteilt']]){const b=document.createElement('button');b.textContent=label;b.style.borderLeft=`9px solid ${COLORS[status]}`;b.disabled=live&&!allowed;b.onclick=()=>changeStatus(status);choices.append(b);}document.getElementById('modal').style.display='flex';}
-async function changeStatus(status){if(!selected)return;if(live){if(!allowed)return;const {error}=await db.from('street_status').upsert({id:selected.properties.id,status},{onConflict:'id'});if(error){alert('Speichern fehlgeschlagen: '+error.message);return;}}selected.properties.status=status;draw();closePanel();}
-window.closePanel=()=>document.getElementById('modal').style.display='none';
-async function refreshSession(){const {data:{session:s}}=await db.auth.getSession();session=s;allowed=false;if(s){const {data,error:editorError}=await db.from('editors').select('user_id').eq('user_id',s.user.id).maybeSingle();allowed=!!data;if(editorError)document.getElementById('notice').textContent='Berechtigungsprüfung fehlgeschlagen: '+editorError.message;}document.getElementById('user').textContent=s?(allowed?'✓ Freigeschaltet':'Nicht freigeschaltet'):'';document.getElementById('login').hidden=!!s;document.getElementById('logout').hidden=!s;}
-document.getElementById('login').onclick=async()=>{const email=prompt('Deine freigeschaltete E-Mail-Adresse:');if(!email)return;const {error}=await db.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:location.origin+location.pathname}});alert(error?'Fehler: '+error.message:'Prüfe dein E-Mail-Postfach für den Anmeldelink.');};document.getElementById('logout').onclick=async()=>{await db.auth.signOut();await refreshSession();};if(db)db.auth.onAuthStateChange(()=>setTimeout(refreshSession,0));draw();
-</script></body></html>
+
+<!doctype html>
+<html lang="de">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <title>Flyer-Challenge: Die Linke Leipzig Süd</title>
+
+  <!-- Kartenbibliothek Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+  <!-- Schriftarten -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Work+Sans:wght@600;700;800;900&display=swap"
+    rel="stylesheet"
+  >
+
+  <style>
+
+    /* =========================================
+       1. GRUNDFARBEN UND ALLGEMEINES DESIGN
+       ========================================= */
+
+    :root {
+      --wine: #83152c;
+      --wine-dark: #591022;
+      --paper: #fffaf8;
+      --ink: #281e24;
+      --muted: #71636b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font: 15px "Inter", system-ui, -apple-system, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+
+    /* =========================================
+       2. KOPFBEREICH
+       ========================================= */
+
+    header {
+      background: linear-gradient(120deg, #641126 0%, #941d38 100%);
+      color: white;
+      padding: 19px 20px 17px;
+      box-shadow: 0 3px 16px #3b081626;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: #ffccd6;
+      margin-bottom: 7px;
+    }
+
+    h1 {
+      font-family: "Work Sans", "Inter", sans-serif;
+      font-size: clamp(22px, 3vw, 31px);
+      line-height: 1.18;
+      letter-spacing: -.035em;
+      margin: 0 0 7px;
+      font-weight: 800;
+    }
+
+    #mode {
+      display: block;
+      color: #f8dfe5;
+      font-size: 13px;
+    }
+
+
+    /* =========================================
+       3. FORTSCHRITTSANZEIGE
+       ========================================= */
+
+    .progress-box {
+      margin-top: 17px;
+      background: #ffffff15;
+      border: 1px solid #ffffff35;
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      font-weight: 750;
+      color: #ffe5eb;
+    }
+
+    #progress {
+      font-size: 13px;
+      color: white;
+      font-weight: 700;
+    }
+
+    .bar {
+      height: 11px;
+      background: #ffffff45;
+      border-radius: 30px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      background: #ffd0d9;
+      width: 0;
+      transition: width .3s;
+    }
+
+
+    /* =========================================
+       4. LEGENDE
+       ========================================= */
+
+    .legend {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #ffffff19;
+      border: 1px solid #ffffff26;
+      border-radius: 30px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      flex: none;
+      border: 1px solid #ffffff45;
+    }
+
+
+    /* =========================================
+       5. BEDIENELEMENTE
+       ========================================= */
+
+    .controls {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 16px;
+      background: var(--paper);
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+      padding: 11px 13px;
+      border: 1px solid #ddcbd0;
+      border-radius: 11px;
+      background: white;
+      color: var(--ink);
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    button:disabled {
+      opacity: .45;
+    }
+
+    select {
+      flex: 1;
+      min-width: 170px;
+      max-width: 380px;
+    }
+
+    #login {
+      background: var(--wine);
+      border-color: var(--wine);
+      color: white;
+    }
+
+    #logout {
+      background: #fff;
+      border-color: #c7a5ae;
+      color: var(--wine);
+    }
+
+    #user {
+      color: #266b47;
+      font-weight: 750;
+      font-size: 13px;
+    }
+
+
+    /* =========================================
+       6. KARTE UND HINWEISTEXT
+       ========================================= */
+
+    #map {
+      height: calc(100dvh - 295px);
+      min-height: 360px;
+      width: 100%;
+      border-top: 1px solid #e7dce0;
+      border-bottom: 1px solid #e7dce0;
+    }
+
+    .leaflet-container {
+      background: #e7edf0;
+    }
+
+    .notice {
+      max-width: 1200px;
+      margin: auto;
+      padding: 12px 16px 20px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+
+    /* =========================================
+       7. FENSTER ZUR STATUSAUSWAHL
+       ========================================= */
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: #16060d99;
+      z-index: 1000;
+      display: none;
+      align-items: end;
+      justify-content: center;
+    }
+
+    .panel {
+      background: white;
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 19px 19px 0 0;
+      box-shadow: 0 -8px 40px #0002;
+    }
+
+    .panel strong {
+      font-size: 18px;
+    }
+
+    .panel button {
+      margin: 5px;
+    }
+
+    .panel #choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+
+    /* =========================================
+       8. ANPASSUNG AN BILDSCHIRMGRÖSSEN
+       ========================================= */
+
+    @media (min-width: 700px) {
+      .modal {
+        align-items: center;
+      }
+
+      .panel {
+        border-radius: 19px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      header {
+        padding: 16px 14px;
+      }
+
+      .controls {
+        padding: 10px;
+      }
+
+      .progress-top {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      #map {
+        height: calc(100dvh - 320px);
+        min-height: 320px;
+      }
+
+      .legend {
+        gap: 5px;
+      }
+
+      .legend span {
+        font-size: 11px;
+        padding: 5px 8px;
+      }
+    }
+
+  </style>
+</head>
+
+
+<body>
+
+  <!-- ========================================
+       9. KOPFBEREICH DER WEBSEITE
+       ======================================== -->
+
+  <header>
+    <div class="header-inner">
+
+      <div class="eyebrow">
+        Gemeinsam unterwegs · Leipzig Süd
+      </div>
+
+      <h1>Flyer-Challenge: Die Linke Leipzig Süd</h1>
+
+      <small id="mode">
+        Gemeinsam Flyer verteilen – Straßenstatus live verfolgen
+      </small>
+
+      <!-- Fortschritt -->
+      <div class="progress-box">
+
+        <div class="progress-top">
+          <span class="progress-label">UNSER FORTSCHRITT</span>
+          <small id="progress">0 von 0 Abschnitten fertig</small>
+        </div>
+
+        <div class="bar">
+          <div class="fill" id="fill"></div>
+        </div>
+
+      </div>
+
+      <!-- Farblegende -->
+      <div class="legend">
+        <span>
+          <i class="dot" style="background:#8B919A"></i>
+          Offen
+        </span>
+
+        <span>
+          <i class="dot" style="background:#FFD600"></i>
+          In Bearbeitung
+        </span>
+
+        <span>
+          <i class="dot" style="background:#E5484D"></i>
+          Fertig
+        </span>
+      </div>
+
+    </div>
+  </header>
+
+
+  <!-- ========================================
+       10. STADTTEILAUSWAHL UND ANMELDUNG
+       ======================================== -->
+
+  <div class="controls">
+
+    <select id="district">
+      <option value="">Alle Stadtteile</option>
+      <option>Connewitz</option>
+      <option>Südvorstadt</option>
+      <option>Dölitz-Dösen</option>
+      <option>Lößnig</option>
+      <option>Marienbrunn</option>
+    </select>
+
+    <button id="login">Helfer-Anmeldung</button>
+
+    <button id="logout" hidden>Abmelden</button>
+
+    <span id="user"></span>
+
+  </div>
+
+
+  <!-- ========================================
+       11. KARTE
+       ======================================== -->
+
+  <div id="map"></div>
+
+
+  <!-- ========================================
+       12. HINWEIS
+       ======================================== -->
+
+  <div class="notice" id="notice">
+    Hinweis: Einzelne Straßenabschnitte können noch unvollständig sein.
+  </div>
+
+
+  <!-- ========================================
+       13. STATUSFENSTER
+       ======================================== -->
+
+  <div class="modal" id="modal">
+    <div class="panel">
+
+      <strong id="street"></strong>
+
+      <p id="hint"></p>
+
+      <div id="choices"></div>
+
+      <button onclick="closePanel()">Schließen</button>
+
+    </div>
+  </div>
+
+
+  <!-- ========================================
+       14. JAVASCRIPT-BIBLIOTHEK
+       ======================================== -->
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+  <script type="module">
+
+    /* ========================================
+       15. SUPABASE UND GRUNDEINSTELLUNGEN
+       ======================================== */
+
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const COLORS = {
+      offen: '#8B919A',
+      arbeit: '#FFD600',
+      fertig: '#E5484D'
+    };
+
+    const config = await fetch('./config.json')
+      .then(r => r.json())
+      .catch(() => ({}));
+
+    const live = !!(config.supabaseUrl && config.supabaseAnonKey);
+
+    const db = live
+      ? createClient(config.supabaseUrl, config.supabaseAnonKey)
+      : null;
+
+
+    /* ========================================
+       16. KARTE INITIALISIEREN
+       ======================================== */
+
+    const map = L.map('map').setView([51.307, 12.378], 12);
+
+    L.tileLayer(
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        attribution: '© OpenStreetMap-Mitwirkende',
+        maxZoom: 19
+      }
+    ).addTo(map);
+
+
+    /* ========================================
+       17. VARIABLE FÜR KARTEN UND ANMELDUNG
+       ======================================== */
+
+    let features = [];
+    let layer;
+    let selected = null;
+    let session = null;
+    let allowed = false;
+
+
+    /* ========================================
+       18. DEMODATEN ALS ERSATZ
+       Falls die eigentliche Straßendatei fehlt.
+       ======================================== */
+
+    const example = {
+      type: 'FeatureCollection',
+
+      features: [
+        {
+          type: 'Feature',
+
+          properties: {
+            id: 'demo-1',
+            name: 'Beispielabschnitt A',
+            district: 'Südvorstadt',
+            status: 'offen'
+          },
+
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [12.372, 51.326],
+              [12.3725, 51.324]
+            ]
+          }
+        },
+
+        {
+          type: 'Feature',
+
+          properties: {
+            id: 'demo-2',
+            name: 'Beispielabschnitt B',
+            district: 'Connewitz',
+            status: 'arbeit'
+          },
+
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [12.378, 51.312],
+              [12.380, 51.311]
+            ]
+          }
+        },
+
+        {
+          type: 'Feature',
+
+          properties: {
+            id: 'demo-3',
+            name: 'Beispielabschnitt C',
+            district: 'Marienbrunn',
+            status: 'fertig'
+          },
+
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [12.389, 51.304],
+              [12.390, 51.302]
+            ]
+          }
+        }
+      ]
+    };
+
+
+    /* ========================================
+       19. STRASSENABSCHNITTE LADEN
+       ======================================== */
+
+    let source = await fetch(
+      './streets_733_ohne_bornaische_ministueck_test.geojson'
+    )
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null);
+
+    if (!source?.features?.length) {
+      source = example;
+
+      document.getElementById('notice').textContent =
+        'ACHTUNG: Die Straßen-Datei fehlt. Es werden nur 3 Demoabschnitte angezeigt.';
+    }
+
+    features = source.features.filter(
+      f => f.geometry?.type === 'LineString' && f.properties?.id
+    );
+
+
+    /* ========================================
+       20. GESPEICHERTE STATUS LADEN
+       UND LIVE-AKTUALISIERUNGEN EMPFANGEN
+       ======================================== */
+
+    if (live) {
+
+ document.getElementById('mode').textContent =
+  'Gemeinsam Flyer verteilen - Status live verfolgen. Änderungen werden für alle auf der Karte gespeichert!';
+
+      await refreshSession();
+
+      const { data, error: readError } = await db
+        .from('street_status')
+        .select('id,status');
+
+      if (readError) {
+        document.getElementById('notice').textContent =
+          'Supabase-Lesefehler: ' + readError.message;
+      }
+
+      if (source === example) {
+        document.getElementById('notice').textContent =
+          'ACHTUNG: Die Straßen-Datei fehlt. Es werden nur 3 Demoabschnitte angezeigt.';
+      }
+
+      for (const row of data || []) {
+        const f = features.find(f => f.properties.id === row.id);
+
+        if (f) {
+          f.properties.status = row.status;
+        }
+      }
+
+      db.channel('status-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'street_status'
+          },
+          async () => {
+
+            const { data } = await db
+              .from('street_status')
+              .select('id,status');
+
+            for (const row of data || []) {
+              const f = features.find(
+                f => f.properties.id === row.id
+              );
+
+              if (f) {
+                f.properties.status = row.status;
+              }
+            }
+
+            draw();
+          }
+        )
+        .subscribe();
+
+    } else {
+
+      document.getElementById('login').hidden = true;
+
+    }
+
+
+    /* ========================================
+       21. KARTE UND FORTSCHRITT ZEICHNEN
+       ======================================== */
+
+    function draw() {
+
+      if (layer) {
+        map.removeLayer(layer);
+      }
+
+      const district = document.getElementById('district').value;
+
+      const visible = features.filter(
+        f => !district || f.properties.district === district
+      );
+
+      layer = L.geoJSON(
+        {
+          type: 'FeatureCollection',
+          features: visible
+        },
+        {
+          style: f => ({
+            color: COLORS[f.properties.status] || COLORS.offen,
+            weight: 9,
+            opacity: .9
+          }),
+
+          onEachFeature: (f, l) =>
+            l.on('click', () => openPanel(f))
+        }
+      ).addTo(map);
+
+      const done = visible.filter(
+        f => f.properties.status === 'fertig'
+      ).length;
+
+      document.getElementById('fill').style.width =
+        (visible.length ? done / visible.length * 100 : 0) + '%';
+
+      document.getElementById('progress').textContent =
+        `${done} von ${visible.length} Abschnitten fertig (${visible.length ? Math.round(done / visible.length * 100) : 0} %) `;
+    }
+
+
+    /* ========================================
+       22. STADTTEILFILTER
+       ======================================== */
+
+    document.getElementById('district').onchange = () => {
+
+      draw();
+
+      if (layer.getLayers().length) {
+        map.fitBounds(layer.getBounds().pad(.15));
+      }
+
+    };
+
+
+    /* ========================================
+       23. STATUSFENSTER ÖFFNEN
+       ======================================== */
+
+    function openPanel(f) {
+
+      selected = f;
+
+      document.getElementById('street').textContent =
+        `${f.properties.name || 'Straßenabschnitt'} · ${f.properties.district || ''}`;
+
+      document.getElementById('hint').textContent =
+        live && !allowed
+          ? 'Nur freigeschaltete Helfer dürfen den Status ändern.'
+          : 'Status wählen:';
+
+      const choices = document.getElementById('choices');
+
+      choices.replaceChildren();
+
+      for (const [status, label] of [
+        ['offen', 'Noch nicht verteilt'],
+        ['arbeit', 'In Bearbeitung'],
+        ['fertig', 'Fertig verteilt']
+      ]) {
+
+        const b = document.createElement('button');
+
+        b.textContent = label;
+
+        b.style.borderLeft = `9px solid ${COLORS[status]}`;
+
+        b.disabled = live && !allowed;
+
+        b.onclick = () => changeStatus(status);
+
+        choices.append(b);
+      }
+
+      document.getElementById('modal').style.display = 'flex';
+
+    }
+
+
+    /* ========================================
+       24. STRASSENSTATUS SPEICHERN
+       ======================================== */
+
+    async function changeStatus(status) {
+
+      if (!selected) {
+        return;
+      }
+
+      if (live) {
+
+        if (!allowed) {
+          return;
+        }
+
+        const { error } = await db
+          .from('street_status')
+          .upsert(
+            {
+              id: selected.properties.id,
+              status
+            },
+            {
+              onConflict: 'id'
+            }
+          );
+
+        if (error) {
+          alert('Speichern fehlgeschlagen: ' + error.message);
+          return;
+        }
+
+      }
+
+      selected.properties.status = status;
+
+      draw();
+
+      closePanel();
+
+    }
+
+
+    /* ========================================
+       25. STATUSFENSTER SCHLIESSEN
+       ======================================== */
+
+    window.closePanel = () => {
+      document.getElementById('modal').style.display = 'none';
+    };
+
+
+    /* ========================================
+       26. ANMELDUNG UND BERECHTIGUNG PRÜFEN
+       ======================================== */
+
+    async function refreshSession() {
+
+      const {
+        data: { session: s }
+      } = await db.auth.getSession();
+
+      session = s;
+      allowed = false;
+
+      if (s) {
+
+        const {
+          data,
+          error: editorError
+        } = await db
+          .from('editors')
+          .select('user_id')
+          .eq('user_id', s.user.id)
+          .maybeSingle();
+
+        allowed = !!data;
+
+        if (editorError) {
+          document.getElementById('notice').textContent =
+            'Berechtigungsprüfung fehlgeschlagen: ' + editorError.message;
+        }
+
+      }
+
+      document.getElementById('user').textContent = s
+        ? (allowed ? '✓ Freigeschaltet' : 'Nicht freigeschaltet')
+        : '';
+
+      document.getElementById('login').hidden = !!s;
+
+      document.getElementById('logout').hidden = !s;
+
+    }
+
+
+    /* ========================================
+       27. HELFER-ANMELDUNG
+       ======================================== */
+
+    document.getElementById('login').onclick = async () => {
+
+      const email = prompt('Deine freigeschaltete E-Mail-Adresse:');
+
+      if (!email) {
+        return;
+      }
+
+      const { error } = await db.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: location.origin + location.pathname
+        }
+      });
+
+      alert(
+        error
+          ? 'Fehler: ' + error.message
+          : 'Prüfe dein E-Mail-Postfach für den Anmeldelink.'
+      );
+
+    };
+
+
+    /* ========================================
+       28. ABMELDUNG
+       ======================================== */
+
+    document.getElementById('logout').onclick = async () => {
+
+      await db.auth.signOut();
+
+      await refreshSession();
+
+    };
+
+
+    /* ========================================
+       29. ANMELDESTATUS BEOBACHTEN
+       ======================================== */
+
+    if (db) {
+      db.auth.onAuthStateChange(
+        () => setTimeout(refreshSession, 0)
+      );
+    }
+
+
+    /* ========================================
+       30. KARTE STARTEN
+       ======================================== */
+
+    draw();
+
+  </script>
+
+</body>
+</html>
