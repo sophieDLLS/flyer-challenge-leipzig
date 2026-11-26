@@ -123,17 +123,38 @@
     }
 
     .bar {
+      position: relative;
+      margin: 12px 15px;
       height: 11px;
       background: #ffffff45;
       border-radius: 30px;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .fill {
       height: 100%;
       background: #ffd0d9;
       width: 0;
-      transition: width .3s;
+      border-radius: 30px;
+      transition: width .45s ease;
+    }
+
+    .rocket {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      font-size: 26px;
+      line-height: 1;
+      transform: translate(-50%, -50%) rotate(45deg);
+      transition: left .45s ease;
+      pointer-events: none;
+    }
+    .celebration { position: relative; text-align: center; color: white; font-size: 13px; }
+    .confetti { position: absolute; left: 50%; top: 0; pointer-events: none; animation: burst .9s ease-out forwards; }
+    @keyframes burst { from { transform: translate(0,0); opacity: 1; } to { transform: translate(var(--x),var(--y)) rotate(220deg); opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .rocket, .fill { transition: none; }
+      .confetti { animation: none; display: none; }
     }
 
 
@@ -369,7 +390,9 @@
 
         <div class="bar">
           <div class="fill" id="fill"></div>
+          <span class="rocket" id="rocket" aria-hidden="true">🚀</span>
         </div>
+        <div class="celebration" id="celebration" hidden>🎉 Gemeinsam geschafft!</div>
 
       </div>
 
@@ -711,8 +734,26 @@
         f => f.properties.status === 'fertig'
       ).length;
 
-      document.getElementById('fill').style.width =
-        (visible.length ? done / visible.length * 100 : 0) + '%';
+      const percent = visible.length ? done / visible.length * 100 : 0;
+      document.getElementById('fill').style.width = percent + '%';
+      document.getElementById('rocket').style.left = percent + '%';
+      const celebration = document.getElementById('celebration');
+      const complete = visible.length > 0 && done === visible.length;
+      if (complete && celebration.hidden) {
+        for (let i = 0; i < 18; i++) {
+          const piece = document.createElement('span');
+          piece.className = 'confetti';
+          piece.setAttribute('aria-hidden', 'true');
+          piece.textContent = ['✦', '●', '▪'][i % 3];
+          piece.style.color = ['#ffd0d9', '#ffffff', '#ffd600'][i % 3];
+          piece.style.setProperty('--x', `${(i - 8.5) * 14}px`);
+          piece.style.setProperty('--y', `${-25 - (i % 5) * 12}px`);
+          piece.addEventListener('animationend', () => piece.remove(), { once: true });
+          celebration.append(piece);
+          setTimeout(() => piece.remove(), 1100);
+        }
+      }
+      celebration.hidden = !complete;
 
       document.getElementById('progress').textContent =
         `${done} von ${visible.length} Abschnitten fertig (${visible.length ? Math.round(done / visible.length * 100) : 0} %) `;
