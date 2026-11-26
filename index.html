@@ -613,6 +613,7 @@
  document.getElementById('mode').textContent =
   'Gemeinsam Flyer verteilen - Status live verfolgen. Änderungen werden für alle auf der Karte gespeichert!';
 
+      await redeemInvitation();
       await refreshSession();
 
       const { data, error: readError } = await db
@@ -833,6 +834,29 @@
     /* ========================================
        26. ANMELDUNG UND BERECHTIGUNG PRÜFEN
        ======================================== */
+
+    async function redeemInvitation() {
+      const params = new URLSearchParams(location.hash.slice(1));
+      if (!params.has('invite')) return;
+      const token = params.get('invite');
+      try {
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
+          throw new Error('Ungültiger Einladungslink.');
+        }
+        const { data, error } = await db.auth.getSession();
+        if (error) throw error;
+        if (!data.session) {
+          const result = await db.auth.signInAnonymously();
+          if (result.error) throw result.error;
+        }
+        const result = await db.rpc('redeem_helper_invite', { invite_token: token });
+        if (result.error) throw result.error;
+        if (result.data !== true) throw new Error('Einladung ungültig oder deaktiviert.');
+        history.replaceState(history.state, '', location.pathname + location.search);
+      } catch (error) {
+        alert('Freischaltung fehlgeschlagen: ' + error.message);
+      }
+    }
 
     async function refreshSession() {
 
